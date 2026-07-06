@@ -356,4 +356,4 @@ npm run dev
 
 ## License
 
-This project currently does not include an explicit license. Add one before open-sourcing the repository.
+This project currently does not include an explicit license.
