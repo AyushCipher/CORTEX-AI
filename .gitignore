@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+coverage/
+uploads/
+temp/
+.env
+.env.*
+**/.env
+**/.env.*
+**/serviceAccount.json
+**/firebase-adminsdk-*.json
+*.log
+.DS_Store
+Thumbs.db
