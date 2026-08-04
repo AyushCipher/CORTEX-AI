@@ -1,32 +1,28 @@
 import { checkAgentLimit } from "../config/agentRateLimit.js";
 import { deductCredits } from "../utils/deductCredits.js";
 import { getModel } from "../utils/model.js";
+import { invokeWithUsage } from "../utils/logLLMUsage.js";
 
 export const codingAgent = async (state) => {
-
-await checkAgentLimit(
+  await checkAgentLimit(state.userId, "coding");
+  await deductCredits(
     state.userId,
+
     "coding"
   );
- await deductCredits(
 
-        state.userId,
+  function cleanCode(code = "") {
+    return code
+      .replace(/```[\w-]*\n?/g, "")
+      .replace(/```/g, "")
+      .trim();
+  }
 
-        "coding"
+  const llm = getModel("coding");
 
-    );
-
-function cleanCode(code = "") {
-  return code
-    .replace(/```[\w-]*\n?/g, "")
-    .replace(/```/g, "")
-    .trim();
-}
-
-  const llm =
-    getModel("coding");
-
- const response = await llm.invoke(`You are CortexAI Coding Agent.
+  const response = await invokeWithUsage(
+    llm,
+    `You are CortexAI Coding Agent.
 
 Your first task is to identify the user's intent.
 
@@ -241,86 +237,63 @@ Generate only what is required.
 
 User Request:
 
-${state.prompt}`);
+${state.prompt}`,
+    { agent: "coding", userId: state.userId, conversationId: state.conversationId }
+  );
 
-  const content =
-    response.content?.trim();
-console.log(content)
+  const content = response.content?.trim();
   const files = [];
 
   const matches = [
-    ...content.matchAll(
-      /FILE:\s*([^\n]+)\n([\s\S]*?)(?=\nFILE:\s*[^\n]+\n|$)/g
-    )
+    ...content.matchAll(/FILE:\s*([^\n]+)\n([\s\S]*?)(?=\nFILE:\s*[^\n]+\n|$)/g)
   ];
 
-  if(matches.length){
-
-    matches.forEach(match => {
-
+  if (matches.length) {
+    matches.forEach((match) => {
       files.push({
-  name: match[1].trim(),
-  content: cleanCode(match[2]),
-});
-
+        name: match[1].trim(),
+        content: cleanCode(match[2])
+      });
     });
-
-  }else{
-
+  } else {
     let fileName = "main.js";
 
-    const prompt =
-      state.prompt.toLowerCase();
+    const prompt = state.prompt.toLowerCase();
 
-    if(prompt.includes("html")){
+    if (prompt.includes("html")) {
       fileName = "index.html";
-    }
-    else if(prompt.includes("css")){
+    } else if (prompt.includes("css")) {
       fileName = "style.css";
-    }
-    else if(prompt.includes("python")){
+    } else if (prompt.includes("python")) {
       fileName = "main.py";
-    }
-    else if(prompt.includes("java")){
+    } else if (prompt.includes("java")) {
       fileName = "Main.java";
-    }
-    else if(prompt.includes("c++")){
+    } else if (prompt.includes("c++")) {
       fileName = "main.cpp";
     }
-
-   
-
- 
-
   }
 
-
   if (!content.includes("FILE:")) {
-  return {
-    ...state,
-    response: content,
-    artifacts: []
-  };
-}
+    return {
+      ...state,
+      response: content,
+      artifacts: []
+    };
+  }
 
   return {
-
     ...state,
 
-    response:
-      "Code generated successfully.",
+    response: "Code generated successfully.",
 
-    artifacts:[
+    artifacts: [
       {
-        id:Date.now(),
-        type:"project",
-        title:state.prompt,
+        id: Date.now(),
+        type: "project",
+        title: state.prompt,
         files,
-        createdAt:
-          new Date().toISOString()
+        createdAt: new Date().toISOString()
       }
     ]
-
   };
-
 };

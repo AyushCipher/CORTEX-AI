@@ -5,42 +5,33 @@ import MessageBubble from "./MessageBubble";
 import MessageList from "./MessageList";
 import Navbar from "./Navbar";
 
-
 function ChatArea() {
-  const [banner,setBanner]=useState({
-    open:false,
-    title:"",
-    message:""
-});
+  const [banner, setBanner] = useState({
+    open: false,
+    title: "",
+    message: ""
+  });
   return (
     <div className="flex-1 flex flex-col min-w-0">
-
       <Navbar />
 
       <MessageList />
       <AIBanner
+        open={banner.open}
 
-   open={banner.open}
+        title={banner.title}
 
-   title={banner.title}
+        message={banner.message}
 
-   message={banner.message}
+        onClose={() =>
+          setBanner({
+            ...banner,
+            open: false
+          })
+        }
+      />
 
-   onClose={()=>
-
-      setBanner({
-         ...banner,
-         open:false
-      })
-
-   }
-
-/>
-
-     <ChatInput
-  setBanner={setBanner}
-/>
-
+      <ChatInput setBanner={setBanner} />
     </div>
   );
 }

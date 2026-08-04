@@ -12,6 +12,8 @@
   "type": "module",
   "dependencies": {
     "dotenv": "^17.4.2",
-    "ioredis": "^5.11.1"
+    "ioredis": "^5.11.1",
+    "pino": "^9.5.0",
+    "pino-http": "^10.3.0"
   }
 }

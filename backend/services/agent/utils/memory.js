@@ -1,89 +1,53 @@
 import redis from "../../../shared/redis/redis.js";
 import { getConversationHistory } from "./getConv.js";
 
+export const getMemory = async (conversationId) => {
+  const key = `conversation:${conversationId}`;
 
-export const getMemory =
-async(conversationId)=>{
+  const cached = await redis.get(key);
 
- const key =
- `conversation:${conversationId}`;
+  if (cached) {
+    return JSON.parse(cached);
+  }
 
- const cached =
- await redis.get(key);
+  const messages = await getConversationHistory(conversationId);
 
- if(cached){
+  await redis.set(
+    key,
 
-  return JSON.parse(
-   cached
+    JSON.stringify(messages),
+
+    "EX",
+
+    86400
   );
 
- }
-
- const messages =
- await getConversationHistory(
-  conversationId
- );
-
- await redis.set(
-
-  key,
-
-  JSON.stringify(
-   messages
-  ),
-
-  "EX",
-
-  86400
-
- );
-
- return messages;
-
+  return messages;
 };
 
+export const addMessage = async (conversationId, role, content) => {
+  const key = `conversation:${conversationId}`;
 
-export const addMessage =
-async(
- conversationId,
- role,
- content
-)=>{
+  const existing = await redis.get(key);
 
- const key =
- `conversation:${conversationId}`;
+  const messages = existing ? JSON.parse(existing) : [];
 
- const existing =
- await redis.get(key);
+  messages.push({
+    role,
+    content
+  });
 
- const messages =
- existing
- ? JSON.parse(existing)
- : [];
+  if (messages.length > 20) {
+    messages.shift();
+  }
 
- messages.push({
-  role,
-  content
- });
+  await redis.set(
+    key,
 
- if(messages.length > 20){
+    JSON.stringify(messages),
 
-  messages.shift();
+    "EX",
 
- }
-
- await redis.set(
-
-  key,
-
-  JSON.stringify(
-   messages
-  ),
-
-  "EX",
-
-  86400
-
- );
-
-}
+    86400
+  );
+};

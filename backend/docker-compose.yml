@@ -1,10 +1,118 @@
-
-
 services:
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
   redis:
     image: redis
     ports:
       - "6379:6379"
 
+  qdrant:
+    image: qdrant/qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant-data:/qdrant/storage
 
+  auth:
+    build:
+      context: .
+      dockerfile: services/auth/Dockerfile
+    env_file:
+      - path: ./services/auth/.env
+        required: false
+    environment:
+      PORT: 8001
+      MONGODB_URL: mongodb://mongo:27017/cortex-auth
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "8001:8001"
+    depends_on:
+      - mongo
+      - redis
 
+  chat:
+    build:
+      context: .
+      dockerfile: services/chat/Dockerfile
+    env_file:
+      - path: ./services/chat/.env
+        required: false
+    environment:
+      PORT: 8002
+      MONGODB_URL: mongodb://mongo:27017/cortex-chat
+    ports:
+      - "8002:8002"
+    depends_on:
+      - mongo
+
+  billing:
+    build:
+      context: .
+      dockerfile: services/billing/Dockerfile
+    env_file:
+      - path: ./services/billing/.env
+        required: false
+    environment:
+      PORT: 8004
+      MONGODB_URL: mongodb://mongo:27017/cortex-billing
+      AUTH_SERVICE: http://auth:8001
+    ports:
+      - "8004:8004"
+    depends_on:
+      - mongo
+      - auth
+
+  agent:
+    build:
+      context: .
+      dockerfile: services/agent/Dockerfile
+    env_file:
+      - path: ./services/agent/.env
+        required: false
+    environment:
+      PORT: 8003
+      MONGODB_URL: mongodb://mongo:27017/cortex-agent
+      REDIS_URL: redis://redis:6379
+      QDRANT_URL: http://qdrant:6333
+      CHAT_SERVICE: http://chat:8002
+      AUTH_SERVICE: http://auth:8001
+    ports:
+      - "8003:8003"
+    depends_on:
+      - mongo
+      - redis
+      - qdrant
+      - chat
+      - auth
+
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    env_file:
+      - path: ./gateway/.env
+        required: false
+    environment:
+      PORT: 8000
+      AUTH_SERVICE: http://auth:8001
+      CHAT_SERVICE: http://chat:8002
+      AGENT_SERVICE: http://agent:8003
+      BILLING_SERVICE: http://billing:8004
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "8000:8000"
+    depends_on:
+      - auth
+      - chat
+      - agent
+      - billing
+      - redis
+
+volumes:
+  mongo-data:
+  qdrant-data:

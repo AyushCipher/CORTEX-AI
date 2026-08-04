@@ -164,13 +164,16 @@ cd cortex-ai
 
 ### 2) Install dependencies
 
-Install frontend and each backend service separately:
+Install the frontend, the `backend/` root (holds shared code's dependencies, such as the Redis client and logger used by `backend/shared/`), and each backend service separately:
 
 ```bash
 cd frontend
 npm install
 
-cd ../backend/services/auth
+cd ../backend
+npm install
+
+cd services/auth
 npm install
 
 cd ../chat
@@ -186,18 +189,27 @@ cd ../../gateway
 npm install
 ```
 
-### 3) Start infrastructure
+### 3) Configure environment variables
 
-If you are using Docker Compose, start Redis and any other local dependencies first:
+Create a `.env` file for the gateway and for each service (`backend/gateway/.env`, `backend/services/auth/.env`, etc.) using the variables listed below. Every service that calls `/internal/*` routes on the auth service, and the auth service itself, must share the same `INTERNAL_SERVICE_SECRET` value.
+
+### 4) Start the stack with Docker Compose
+
+`docker compose up` builds and runs MongoDB, Redis, Qdrant, and all five backend services together, wired to talk to each other over the Compose network:
 
 ```bash
 cd backend
-docker compose up -d
+docker compose up --build
 ```
 
-### 4) Configure environment variables
+The gateway is then reachable at `http://localhost:8000`. Run the frontend separately with `npm run dev` (see below) and point `VITE_SERVER_URL` at that URL.
 
-Create `.env` files for the gateway and each service as needed.
+If you'd rather run services individually with `npm run dev` (useful while iterating), you can still start just the infrastructure containers:
+
+```bash
+cd backend
+docker compose up -d mongo redis qdrant
+```
 
 ## Environment Variables
 
@@ -208,39 +220,49 @@ Create `.env` files for the gateway and each service as needed.
 - `CHAT_SERVICE` - chat service base URL
 - `AGENT_SERVICE` - agent service base URL
 - `BILLING_SERVICE` - billing service base URL
+- `REDIS_URL` - Redis connection string, used to look up sessions in the `protect` middleware
 
 ### Auth Service
 
 - `PORT` - auth service port
-- `MONGODB_URI` - MongoDB connection string
+- `MONGODB_URL` - MongoDB connection string
 - `REDIS_URL` - Redis connection string
+- `INTERNAL_SERVICE_SECRET` - shared secret required on the `x-internal-secret` header for `/internal/*` routes; must match the value used by the billing and agent services
 - Firebase Admin credentials or service account configuration
 
 ### Chat Service
 
 - `PORT` - chat service port
-- `MONGODB_URI` - MongoDB connection string
+- `MONGODB_URL` - MongoDB connection string
 
 ### Billing Service
 
 - `PORT` - billing service port
-- `MONGODB_URI` - MongoDB connection string
+- `MONGODB_URL` - MongoDB connection string
 - `RAZORPAY_KEY_ID` - Razorpay key ID
 - `RAZORPAY_KEY_SECRET` - Razorpay secret key
 - `AUTH_SERVICE` - auth service base URL for plan updates
+- `INTERNAL_SERVICE_SECRET` - shared secret sent on the `x-internal-secret` header when calling the auth service's internal routes
 
 ### Agent Service
 
 - `PORT` - agent service port
-- `MONGODB_URI` - MongoDB connection string
+- `MONGODB_URL` - MongoDB connection string
 - `REDIS_URL` - Redis connection string
 - `CHAT_SERVICE` - chat service base URL for message persistence
+- `AUTH_SERVICE` - auth service base URL for credit deduction
+- `INTERNAL_SERVICE_SECRET` - shared secret sent on the `x-internal-secret` header when calling the auth service's internal routes
 - `GOOGLE_API_KEY` - Gemini / embeddings API key
+- `GROQ_API_KEY` - Groq API key (read implicitly by `@langchain/groq`)
+- `OPENROUTER_API_KEY` - OpenRouter API key (read implicitly by `@langchain/openrouter`)
 - `TAVILY_API_KEY` - Tavily search API key
+- `QDRANT_URL` - Qdrant base URL
+- `QDRANT_API_KEY` - Qdrant API key (optional for a local/unauthenticated instance)
 - `S3_BUCKET_NAME` - S3 bucket name
 - `AWS_ACCESS_KEY_ID` - AWS access key
 - `AWS_SECRET_ACCESS_KEY` - AWS secret key
 - `AWS_REGION` - AWS region
+- `INTERNAL_SERVICE_SECRET` - shared secret sent on the `x-internal-secret` header when calling the auth service's internal routes
 
 ## Running the Project
 
@@ -315,15 +337,21 @@ npm run dev
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| POST | `/chat` | Send prompt, optional file, and get AI response |
+| POST | `/chat` | Send prompt, optional file, and get a full AI response (single JSON reply) |
+| POST | `/chat/stream` | Same as `/chat`, but streams the response as Server-Sent Events (`agent`, `token`, `done`, `error`) |
+
+## Observability
+
+- Every service logs structured JSON via `pino` (`backend/shared/logger`), replacing ad-hoc `console.log` calls.
+- The gateway assigns (or forwards) an `x-request-id` per request and propagates it to every proxied service, so a single request can be traced across the gateway → auth/chat/billing/agent boundary via that ID.
+- Every LLM call in the agent graph goes through `invokeWithUsage` (`backend/services/agent/utils/logLLMUsage.js`), which logs latency, token usage, and an approximate USD cost per call, tagged with the agent name, user, and conversation.
 
 ## Future Improvements
 
-- Add automated unit, integration, and e2e test coverage
-- Add response streaming for a more ChatGPT-like experience
-- Add prompt versioning and evaluation metrics for each agent
+- Add unit/integration coverage for the remaining controllers and agents beyond the current thin layer (auth login/logout, chat/agent CRUD routes, PDF/PPT/image agents), plus e2e tests
+- Add prompt versioning and quality/eval metrics for each agent, on top of the new per-call token/cost logs
 - Add stronger file validation and prompt-injection defenses
-- Add observability with structured logs, traces, and cost metrics
+- Add distributed tracing (e.g. OpenTelemetry) on top of the new request-id propagation
 - Add conversation search, pinning, and workspace organization
 - Add deployment automation with CI/CD and environment promotion
 - Replace placeholder demo flows with production-grade artifact templates

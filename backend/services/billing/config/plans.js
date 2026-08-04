@@ -1,7 +1,5 @@
 export const PLANS = {
-
   free: {
-
     id: "free",
 
     name: "Free",
@@ -11,11 +9,9 @@ export const PLANS = {
     credits: 100,
 
     validity: 30
-
   },
 
   starter: {
-
     id: "starter",
 
     name: "Starter",
@@ -25,11 +21,9 @@ export const PLANS = {
     credits: 500,
 
     validity: 30
-
   },
 
   pro: {
-
     id: "pro",
 
     name: "Pro",
@@ -39,7 +33,5 @@ export const PLANS = {
     credits: 1000,
 
     validity: 30
-
   }
-
 };

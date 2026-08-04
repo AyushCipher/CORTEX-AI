@@ -1,70 +1,40 @@
 import { getModel } from "../utils/model.js";
+import { invokeWithUsage } from "../utils/logLLMUsage.js";
 
-export const routerNode =
-async(state)=>{
-
-
-if (
-
-    state.agent &&
-
-    state.agent !== "auto"
-
-) {
-
+export const routerNode = async (state) => {
+  if (state.agent && state.agent !== "auto") {
     return {
+      ...state,
 
+      agent: state.agent
+    };
+  }
+
+  if (state.file) {
+    if (state.file.mimetype.startsWith("image/")) {
+      return {
         ...state,
 
-        agent: state.agent
-
-    };
-
-}
-
-
-if(state.file){
-
-    if(
-
-        state.file.mimetype.startsWith("image/")
-
-    ){
-
-        return{
-
-            ...state,
-
-            agent:"vision"
-
-        };
-
+        agent: "vision"
+      };
     }
+  }
 
-}
+  if (state.file) {
+    if (state.file.mimetype === "application/pdf") {
+      return {
+        ...state,
 
-if(state.file){
-
-    if(state.file.mimetype==="application/pdf"){
-
-        return{
-
-            ...state,
-
-            agent:"pdf_rag"
-
-        };
-
+        agent: "pdf_rag"
+      };
     }
+  }
 
-}
+  const llm = getModel("router");
 
-
- const llm =
- getModel("router");
-
- const result =
- await llm.invoke(`
+  const result = await invokeWithUsage(
+    llm,
+    `
 
 You are an agent router.
 
@@ -75,7 +45,7 @@ Available agents:
 - coding
 - pdf
 - ppt
-- image 
+- image
 
 Rules:
 
@@ -107,28 +77,30 @@ ppt:
 Questions about generate ppts
 or ppt context.
 
+image:
+Questions about generating
+or creating an image.
+
 Return ONLY one word:
 
 chat
 search
 coding
 pdf
+ppt
+image
 
 User Query:
 
 ${state.prompt}
 
- `);
+ `,
+    { agent: "router", userId: state.userId, conversationId: state.conversationId }
+  );
 
- return {
+  return {
+    ...state,
 
-  ...state,
-
-  agent:
-  result.content
-   .trim()
-   .toLowerCase()
-
- };
-
+    agent: result.content.trim().toLowerCase()
+  };
 };

@@ -18,7 +18,7 @@ function NeuralPulse() {
             duration: 1.8,
             repeat: Infinity,
             delay,
-            ease: "easeOut",
+            ease: "easeOut"
           }}
         />
       ))}
@@ -68,7 +68,7 @@ function GeneratingIndicator() {
                   duration: 1.4,
                   repeat: Infinity,
                   ease: "easeInOut",
-                  delay: i * 0.07,
+                  delay: i * 0.07
                 }}
               >
                 {ch}
@@ -82,49 +82,31 @@ function GeneratingIndicator() {
 }
 
 export default function MessageList() {
-
   const bottomRef = useRef(null);
-  const { messages, isLoading } = useSelector(state => state.message);
-  const { selectedConversation } = useSelector(state => state.conversation);
+  const { messages, isLoading } = useSelector((state) => state.message);
+  const { selectedConversation } = useSelector((state) => state.conversation);
   const dispatch = useDispatch();
-useEffect(() => {
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({
+        behavior: "smooth",
 
-  requestAnimationFrame(() => {
-
-    bottomRef.current?.scrollIntoView({
-
-      behavior: "smooth",
-
-      block: "end"
-
+        block: "end"
+      });
     });
-
-  });
-
-}, [messages.length, isLoading]);
+  }, [messages.length, isLoading]);
   useEffect(() => {
     if (selectedConversation?.title === "New Chat") return;
     const get = async () => {
       const data = await getMessages(selectedConversation?._id);
       dispatch(setMessages(data));
-      const latestArtifactMessage =
-  [...data]
-    .reverse()
-    .find(
-      msg =>
-        msg.artifacts &&
-        msg.artifacts.length > 0
-    );
+      const latestArtifactMessage = [...data]
+        .reverse()
+        .find((msg) => msg.artifacts && msg.artifacts.length > 0);
 
-if (latestArtifactMessage) {
-
-  dispatch(
-    setArtifacts(
-      latestArtifactMessage.artifacts
-    )
-  );
-
-}
+      if (latestArtifactMessage) {
+        dispatch(setArtifacts(latestArtifactMessage.artifacts));
+      }
     };
     get();
   }, [selectedConversation?._id]);
@@ -134,9 +116,15 @@ if (latestArtifactMessage) {
       {messages.length === 0 && !isLoading ? (
         <div className="h-full flex flex-col items-center justify-center gap-4 text-center">
           <div className="flex flex-col gap-1.5">
-            <h1 className="text-[20px] font-semibold text-slate-200 tracking-tight">CortexAI</h1>
-            <h3 className="text-[15px] font-semibold text-slate-400 tracking-tight">How can I help you?</h3>
-            <p className="text-[13px] text-slate-600 max-w-[260px] leading-relaxed">Ask me anything — code, ideas, explanations, or just a quick question.</p>
+            <h1 className="text-[20px] font-semibold text-slate-200 tracking-tight">
+              CortexAI
+            </h1>
+            <h3 className="text-[15px] font-semibold text-slate-400 tracking-tight">
+              How can I help you?
+            </h3>
+            <p className="text-[13px] text-slate-600 max-w-[260px] leading-relaxed">
+              Ask me anything — code, ideas, explanations, or just a quick question.
+            </p>
           </div>
           <div className="flex flex-wrap justify-center gap-2 mt-1">
             {["Write a Netflix clone", "Explain Redis", "Build a dashboard"].map((s) => (
@@ -151,16 +139,22 @@ if (latestArtifactMessage) {
         </div>
       ) : (
         <>
-          {messages.map((msg, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.22, ease: "easeOut" }}
-            >
-              <MessageBubble role={msg.role} content={msg.content} images={msg?.images || []}/>
-            </motion.div>
-          ))}
+          {messages
+            .filter((msg) => msg.role !== "assistant" || msg.content)
+            .map((msg, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+              >
+                <MessageBubble
+                  role={msg.role}
+                  content={msg.content}
+                  images={msg?.images || []}
+                />
+              </motion.div>
+            ))}
 
           {isLoading && (
             <motion.div
@@ -171,10 +165,9 @@ if (latestArtifactMessage) {
               <GeneratingIndicator />
             </motion.div>
           )}
-        
         </>
       )}
-        <div ref={bottomRef} />
+      <div ref={bottomRef} />
     </div>
   );
 }

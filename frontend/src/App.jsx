@@ -1,18 +1,17 @@
-import React, { useEffect } from 'react'
-import {BrowserRouter, Route, Routes} from "react-router-dom"
-import Home from './pages/Home'
-import useCurrentUser from './hooks/useCurrentUser'
+import React, { useEffect } from "react";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import Home from "./pages/Home";
+import useCurrentUser from "./hooks/useCurrentUser";
 function App() {
-  useCurrentUser()
- 
+  useCurrentUser();
+
   return (
-   <BrowserRouter>
-   <Routes>
-    <Route path='/' element={<Home/>}/>
-   </Routes>
-   
-   </BrowserRouter>
-  )
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;

@@ -1,46 +1,29 @@
 import redis from "../../shared/redis/redis.js";
 
+export const protect = async (req, res, next) => {
+  try {
+    const sessionId = req?.cookies?.session;
 
-export const protect =
-async(req,res,next)=>{
+    if (!sessionId) {
+      return res.status(401).json({
+        message: "Unauthorized"
+      });
+    }
 
- try{
+    const session = await redis.get(`session:${sessionId}`);
 
-   const sessionId =
-   req?.cookies?.session;
-  
-   if(!sessionId){
+    if (!session) {
+      return res.status(401).json({
+        message: "Session Expired"
+      });
+    }
 
-     return res.status(401).json({
-       message:"Unauthorized"
-     });
+    req.user = JSON.parse(session);
 
-   }
-
-   const session =
-   await redis.get(
-    `session:${sessionId}`
-   );
-
-   if(!session){
-
-     return res.status(401).json({
-       message:"Session Expired"
-     });
-
-   }
-
-   req.user =
-   JSON.parse(session);
-
-   next();
-
- }catch(error){
-
-   return res.status(500).json({
-    message:error.message
-   });
-
- }
-
-}
+    next();
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message
+    });
+  }
+};

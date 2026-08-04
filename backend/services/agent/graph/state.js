@@ -1,40 +1,25 @@
 import { Annotation } from "@langchain/langgraph";
 
-export const AgentState =
-Annotation.Root({
+export const AgentState = Annotation.Root({
+  prompt: Annotation(),
 
- prompt:
- Annotation(),
+  conversationId: Annotation(),
 
- conversationId:
- Annotation(),
+  userId: Annotation(),
 
- userId:
- Annotation(),
+  agent: Annotation(),
 
- agent:
- Annotation(),
+  response: Annotation(),
 
- response:
- Annotation(),
+  images: Annotation(),
+  model: Annotation(),
+  file: Annotation(),
 
- images:
-  Annotation(),
- model:
- Annotation(),
-  file:
- Annotation(),
+  artifacts: Annotation(),
 
- artifacts:
- Annotation(),
+  searchResults: Annotation(),
 
- searchResults:
- Annotation(),
+  codeContext: Annotation(),
 
- codeContext:
- Annotation(),
-
- pdfContext:
- Annotation()
-
+  pdfContext: Annotation()
 });

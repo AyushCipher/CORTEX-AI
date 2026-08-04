@@ -3,12 +3,14 @@ import cors from "cors";
 import connectDB from "./config/db.js";
 import dotenv from "dotenv";
 import router from "./routes/auth.routes.js";
+import { createLogger } from "../../shared/logger/logger.js";
+import { createHttpLogger } from "../../shared/logger/httpLogger.js";
 dotenv.config();
 const app = express();
+const logger = createLogger("auth");
+app.use(createHttpLogger(logger));
 app.use(express.json());
-const port=process.env.PORT 
-
-
+const port = process.env.PORT;
 
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -16,10 +18,8 @@ app.get("/", (req, res) => {
     status: "ok"
   });
 });
-app.use("/",router)
+app.use("/", router);
 app.listen(port, () => {
-    connectDB()
-  console.log(
-    `auth service running on ${port}`
-  );
+  connectDB();
+  logger.info(`auth service running on ${port}`);
 });

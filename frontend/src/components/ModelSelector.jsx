@@ -1,11 +1,7 @@
-import React from 'react'
+import React from "react";
 
 function ModelSelector() {
-  return (
-    <div>
-      ModelSelector
-    </div>
-  )
+  return <div>ModelSelector</div>;
 }
 
-export default ModelSelector
+export default ModelSelector;

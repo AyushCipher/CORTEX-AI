@@ -5,12 +5,17 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
+  "devDependencies": {
+    "supertest": "^7.1.4",
+    "vitest": "^3.2.4"
+  },
   "dependencies": {
     "axios": "^1.18.1",
     "cookie-parser": "^1.4.7",
@@ -20,8 +25,8 @@
     "express": "^5.2.1",
     "helmet": "^8.2.0",
     "mongoose": "^9.7.2",
-    "morgan": "^1.11.0",
     "nodemon": "^3.1.14",
-    "razorpay": "^2.9.6"
+    "razorpay": "^2.9.6",
+    "zod": "^3.24.1"
   }
 }

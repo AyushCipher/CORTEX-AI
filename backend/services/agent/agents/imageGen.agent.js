@@ -5,29 +5,22 @@ import { uploadToS3 } from "../utils/uploadToS3.js";
 import { getDownloadUrl } from "../utils/getDownloadUrl.js";
 import { checkAgentLimit } from "../config/agentRateLimit.js";
 import { deductCredits } from "../utils/deductCredits.js";
+import { invokeWithUsage } from "../utils/logLLMUsage.js";
 
 export const imageAgent = async (state) => {
-
   try {
+    await checkAgentLimit(state.userId, "image");
+    await deductCredits(
+      state.userId,
 
-await checkAgentLimit(
-    state.userId,
-    "image"
-  );
- await deductCredits(
-
-        state.userId,
-
-        "image"
-
+      "image"
     );
 
+    const llm = getModel("image");
 
-    const llm =
-      getModel("image");
-
-    const promptResponse =
-      await llm.invoke(`
+    const promptResponse = await invokeWithUsage(
+      llm,
+      `
 
 You are an elite AI image prompt engineer.
 
@@ -53,50 +46,32 @@ User Request:
 
 ${state.prompt}
 
-`);
-
-    const enhancedPrompt =
-      promptResponse.content.trim();
-
-    const imageUrl =
-      `https://image.pollinations.ai/prompt/${encodeURIComponent(
-        enhancedPrompt
-      )}`;
-
-    const imageResponse =
-      await axios.get(
-        imageUrl,
-        {
-          responseType:
-            "arraybuffer"
-        }
-      );
-
-    const imageBuffer =
-      Buffer.from(
-        imageResponse.data
-      );
-
-    const fileName =
-      `image-${Date.now()}.png`;
-
-    await uploadToS3(
-      imageBuffer,
-      fileName,
-      "image/png"
+`,
+      { agent: "image", userId: state.userId, conversationId: state.conversationId }
     );
 
-    const downloadUrl =
-      await getDownloadUrl(
-        fileName,
-        24*60*60
-      );
+    const enhancedPrompt = promptResponse.content.trim();
+
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(
+      enhancedPrompt
+    )}`;
+
+    const imageResponse = await axios.get(imageUrl, {
+      responseType: "arraybuffer"
+    });
+
+    const imageBuffer = Buffer.from(imageResponse.data);
+
+    const fileName = `image-${Date.now()}.png`;
+
+    await uploadToS3(imageBuffer, fileName, "image/png");
+
+    const downloadUrl = await getDownloadUrl(fileName, 24 * 60 * 60);
 
     return {
-
       ...state,
 
-     response: `
+      response: `
 # 🖼️ Image Generated Successfully
 
 ![Generated Image](${downloadUrl})
@@ -105,25 +80,14 @@ ${state.prompt}
 
 ⏳ Link expires in 10 minutes.
 `
-
     };
-
   } catch (error) {
-
-    console.log(
-      "Image Agent Error:",
-      error
-    );
+    console.error("Image Agent Error:", error);
 
     return {
-
       ...state,
 
-      response:
-        "❌ Failed to generate image."
-
+      response: "❌ Failed to generate image."
     };
-
   }
-
 };
