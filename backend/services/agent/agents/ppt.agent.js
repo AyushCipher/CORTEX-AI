@@ -372,14 +372,15 @@ function parseResponse(content) {
 // ─── Agent ────────────────────────────────────────────────────────────────────
 
 export const pptAgent = async (state) => {
+  await checkAgentLimit(state.userId, "ppt");
+
+  await deductCredits(
+    state.userId,
+
+    "ppt"
+  );
+
   try {
-    await checkAgentLimit(state.userId, "ppt");
-
-    await deductCredits(
-      state.userId,
-
-      "ppt"
-    );
     const llm = getModel("ppt");
 
     const aiResponse = await invokeWithUsage(

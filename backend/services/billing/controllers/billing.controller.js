@@ -57,7 +57,7 @@ export const createOrder = async (req, res) => {
     return res.status(500).json({
       success: false,
 
-      message: error.message
+      message: error.message || error.error?.description || "Failed to create order."
     });
   }
 };
@@ -139,7 +139,7 @@ export const verifyPayment = async (req, res) => {
     return res.status(500).json({
       success: false,
 
-      message: error.message
+      message: error.message || "Failed to verify payment."
     });
   }
 };

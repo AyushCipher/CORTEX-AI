@@ -8,14 +8,14 @@ import { deductCredits } from "../utils/deductCredits.js";
 import { invokeWithUsage } from "../utils/logLLMUsage.js";
 
 export const imageAgent = async (state) => {
+  await checkAgentLimit(state.userId, "image");
+  await deductCredits(
+    state.userId,
+
+    "image"
+  );
+
   try {
-    await checkAgentLimit(state.userId, "image");
-    await deductCredits(
-      state.userId,
-
-      "image"
-    );
-
     const llm = getModel("image");
 
     const promptResponse = await invokeWithUsage(

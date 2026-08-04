@@ -7,6 +7,12 @@ import { app } from "../config/firebase.js";
 
 export const login = async (req, res) => {
   try {
+    if (!app) {
+      return res.status(503).json({
+        message: "Firebase auth is not configured on this server."
+      });
+    }
+
     const { token } = req.body;
 
     const decoded = await getAuth(app).verifyIdToken(token);

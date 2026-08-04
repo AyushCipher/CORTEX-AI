@@ -1,7 +1,21 @@
 import { initializeApp, cert } from "firebase-admin/app";
+import fs from "fs";
+import path from "path";
 
-import serviceAccount from "../serviceAccount.json" with { type: "json" };
+const serviceAccountPath = path.resolve("./serviceAccount.json");
 
-export const app = initializeApp({
-  credential: cert(serviceAccount)
-});
+let app;
+
+if (fs.existsSync(serviceAccountPath)) {
+  const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf-8"));
+
+  app = initializeApp({
+    credential: cert(serviceAccount)
+  });
+} else {
+  console.warn(
+    "serviceAccount.json not found — Firebase auth is disabled. /login will return 503 until it is provided."
+  );
+}
+
+export { app };

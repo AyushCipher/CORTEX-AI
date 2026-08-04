@@ -6,6 +6,7 @@
   <img src="https://img.shields.io/badge/LangChain-AI%20Agents-111827?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Redis-Rate%20Limiting-DC382D?style=for-the-badge&logo=redis" />
   <img src="https://img.shields.io/badge/Docker-Microservices-2496ED?style=for-the-badge&logo=docker" />
+  <img src="https://img.shields.io/badge/Tests-Vitest%20%2B%20Supertest-6E9F18?style=for-the-badge&logo=vitest" />
 </p>
 
 ## Professional Overview
@@ -17,13 +18,17 @@ The system is built around a gateway-driven microservice architecture. A React +
 ## Key Features
 
 - Multi-agent AI routing for chat, coding, search, PDF, PPT, image, vision, and PDF RAG workflows
+- A search agent that behaves agentically: it reformulates its own query via an LLM and retries (up to 3x) when the web search returns nothing useful, instead of just returning an empty result
+- Server-Sent Event streaming (`/api/agent/chat/stream`) so responses render token-by-token instead of waiting for the full reply
 - Google authentication with Firebase Admin session management
 - Conversation persistence with reusable chat history
 - PDF upload and retrieval-augmented answering from document context
 - AI image generation with S3-backed download links
 - AI-generated PDFs and presentations with downloadable artifacts
 - Credit-based billing with plan upgrades and usage deduction
-- Redis-backed rate limiting per agent type
+- Redis-backed rate limiting per agent type, enforced independently of whether the underlying generation call itself succeeds
+- Service-to-service authentication (shared secret) on every internal route, with request validation (zod) on every controller
+- Structured JSON logging with request-id tracing across services, and per-LLM-call token/cost logging
 - Artifact panel with code preview and live preview support
 - Responsive dark UI with speech input support and file attachments
 
@@ -81,12 +86,17 @@ The AI layer is not a single prompt wrapper. It is organized as a routing graph 
 
 This is the strongest part of the project because it demonstrates orchestration, task specialization, state management, and retrieval-based reasoning.
 
+The search agent goes one step further than routing: rather than a single fixed call, it runs an observe/retry loop — if the initial Tavily search returns no usable results, it asks an LLM to reformulate the query (broaden terms, try synonyms) and retries, up to three attempts, before falling back to an empty result set.
+
 ## Tech Stack
 
 | Layer | Technologies |
 |---|---|
 | Frontend | React 19, Vite, Redux Toolkit, React Router, Framer Motion, Tailwind CSS, Monaco Editor |
-| Backend | Node.js, Express.js, Mongoose, Multer, Helmet, Morgan, CORS |
+| Backend | Node.js, Express.js, Mongoose, Multer, Helmet, CORS |
+| Validation | Zod (request schemas on every controller) |
+| Observability | Pino / pino-http (structured logs, request-id tracing) |
+| Testing | Vitest, Supertest |
 | AI / Orchestration | LangChain, LangGraph, Google Generative AI, Groq, OpenRouter, Tavily |
 | Data | MongoDB, Redis, Qdrant |
 | Auth | Firebase Authentication, Firebase Admin |
@@ -112,16 +122,25 @@ backend/
   gateway/                  # API gateway and auth-aware proxy layer
   services/
     auth/                   # Firebase auth, sessions, user plan management
+      middlewares/          # internal-service shared-secret auth
+      validators/           # zod request schemas
     chat/                   # conversation and message persistence
+      validators/
     billing/                # plans, payment verification, credit upgrades
+      validators/
     agent/                  # AI routing, tools, RAG, generation, artifacts
-  shared/redis/             # shared Redis client
+      validators/
+      utils/logLLMUsage.js  # wraps every LLM call with token/cost logging
+  shared/
+    redis/                  # shared Redis client
+    logger/                 # pino logger + pino-http request middleware
+    validation/            # shared zod validate() middleware
   docker-compose.yml
 
 frontend/
   src/
     components/             # chat UI, sidebar, billing drawer, artifact panel
-    features/               # API clients
+    features/               # API clients (incl. SSE stream consumer)
     pages/                  # Home page
     redux/                  # app state slices
     hooks/                  # auth/user hook
@@ -228,7 +247,7 @@ docker compose up -d mongo redis qdrant
 - `MONGODB_URL` - MongoDB connection string
 - `REDIS_URL` - Redis connection string
 - `INTERNAL_SERVICE_SECRET` - shared secret required on the `x-internal-secret` header for `/internal/*` routes; must match the value used by the billing and agent services
-- Firebase Admin credentials or service account configuration
+- A Firebase service account file at `backend/services/auth/serviceAccount.json` (download from Firebase Console → Project Settings → Service Accounts → Generate new private key). If this file is missing, the service still starts (and `/logout` and the internal routes still work), but `POST /login` returns `503` until it's provided — it degrades instead of crashing the whole process.
 
 ### Chat Service
 
@@ -293,6 +312,32 @@ npm run dev
 cd backend/services/agent
 npm run dev
 ```
+
+## Testing
+
+Auth, billing, and agent each have a Vitest + Supertest suite covering the parts most worth trusting: the internal-service auth middleware, the shared zod validator, per-agent rate limiting, the search agent's retry/reformulation loop, the SSE controller, and the billing controller's Razorpay/signature paths.
+
+```bash
+cd backend/services/auth
+npm test
+
+cd ../billing
+npm test
+
+cd ../agent
+npm test
+```
+
+This is a thin layer, not full coverage — see [Future Improvements](#future-improvements).
+
+### Verifying the stack locally without cloud credentials
+
+You can confirm the plumbing works end to end using only a local MongoDB and Redis (no Firebase/Groq/Gemini/Razorpay/S3 keys needed):
+
+1. Point each service's `.env` at `mongodb://localhost:27017/...` and `redis://localhost:6379`, and give auth/billing/agent the same `INTERNAL_SERVICE_SECRET`.
+2. Start chat, billing, agent, and gateway with `npm run dev` (auth will start too — see the note above about `serviceAccount.json`).
+3. Since there's no real Firebase login without credentials, you can simulate an authenticated session directly: insert a user document into the auth service's Mongo database, then write a matching `session:<id>` key into Redis with the same shape the auth service's `login` handler creates (see `backend/services/auth/controllers/auth.controllers.js`), and send that id as the `session` cookie.
+4. From there you can exercise the real routes — `GET /api/me`, chat CRUD, and `POST /api/agent/chat` / `/chat/stream` — and confirm session lookup, zod validation, per-agent rate limiting, cross-service credit deduction (agent → auth over the internal-secret header), and SSE event framing all work. The only thing that requires real credentials is the final external call (Groq/Gemini/Tavily/Razorpay/Firebase) — those fail with a clean, provider-reported error (e.g. Groq's `401 Invalid API Key`) rather than crashing the process, which is itself confirmation the integration wiring is correct.
 
 ## API Endpoints
 
@@ -361,7 +406,9 @@ npm run dev
 - Built a gateway-based microservice architecture instead of a monolith
 - Coordinated multiple AI providers behind a single user experience
 - Added retrieval-augmented QA for uploaded PDFs
-- Implemented credit and rate-limit controls for expensive AI operations
+- Implemented credit and rate-limit controls for expensive AI operations, and made sure those failures (429 / insufficient credits) are surfaced to the client instead of being swallowed by an agent's own error handling
+- Locked down service-to-service calls (`/internal/*`) with a shared-secret middleware instead of leaving them open behind the gateway
+- Added request tracing (`x-request-id`) across the gateway → service boundary, and structured logging in place of ad-hoc `console.log`
 - Persisted user conversations and messages across sessions
 - Managed generated files and preview artifacts in the frontend
 
@@ -376,10 +423,11 @@ npm run dev
 
 ## Why This Project Stands Out
 
-- It is not a basic chatbot; it is a multi-agent AI product with real workflows
+- It is not a basic chatbot; it is a multi-agent AI product with real workflows, including an agent that retries and reformulates its own queries rather than just routing once
 - It combines LLMs, RAG, file handling, billing, auth, and persistence
 - It has a clear architecture that maps well to real-world SaaS systems
 - The artifact panel and generated outputs make the AI capabilities visible to users
+- It takes security and operability seriously: authenticated internal endpoints, request tracing, structured logs, per-call cost visibility, and a real (if thin) test suite — not just a demo that only works on the happy path
 - The stack is recruiter-friendly and demonstrates practical engineering depth
 
 ## License
