@@ -96,9 +96,9 @@ export default function MessageList() {
     });
   }, [messages.length, isLoading]);
   useEffect(() => {
-    if (selectedConversation?.title === "New Chat") return;
+    if (!selectedConversation?._id || selectedConversation.title === "New Chat") return;
     const get = async () => {
-      const data = await getMessages(selectedConversation?._id);
+      const data = await getMessages(selectedConversation._id);
       dispatch(setMessages(data));
       const latestArtifactMessage = [...data]
         .reverse()
