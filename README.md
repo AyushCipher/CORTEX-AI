@@ -148,8 +148,6 @@ frontend/
 
 ## Screenshots
 
-> Add your own screenshots here after running the app locally.
-
 ### Login Screen
 
 ![Login Screen](./docs/screenshots/login.png)
