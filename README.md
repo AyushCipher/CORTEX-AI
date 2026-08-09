@@ -430,4 +430,4 @@ You can confirm the plumbing works end to end using only a local MongoDB and Red
 
 ## License
 
-This project currently does not include an explicit license.
+[MIT](./LICENSE)
