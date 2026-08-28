@@ -1,0 +1,233 @@
+[
+  {
+    "id": "cortex-1",
+    "doc": "cortex-handbook.pdf",
+    "docTitle": "CortexAI Platform Handbook",
+    "section": "3. Credit Costs",
+    "type": "factual",
+    "question": "How many credits does the search agent cost per request?",
+    "expectedAnswer": "5 credits",
+    "expectedKeywords": ["5 credit"],
+    "sourceSnippet": "search agent costs 5 credits per request"
+  },
+  {
+    "id": "cortex-2",
+    "doc": "cortex-handbook.pdf",
+    "docTitle": "CortexAI Platform Handbook",
+    "section": "4. Rate Limits",
+    "type": "factual",
+    "question": "How many requests per minute is the coding agent allowed?",
+    "expectedAnswer": "5 requests per minute",
+    "expectedKeywords": ["5 request", "5 per minute", "5/minute"],
+    "sourceSnippet": "coding, pdf, and ppt agents each allow 5 requests per minute"
+  },
+  {
+    "id": "cortex-3",
+    "doc": "cortex-handbook.pdf",
+    "docTitle": "CortexAI Platform Handbook",
+    "section": "5. Data Retention Policy",
+    "type": "factual",
+    "question": "How long does the download link for a generated file stay valid?",
+    "expectedAnswer": "24 hours",
+    "expectedKeywords": ["24 hour"],
+    "sourceSnippet": "download link expires after 24 hours"
+  },
+  {
+    "id": "cortex-4",
+    "doc": "cortex-handbook.pdf",
+    "docTitle": "CortexAI Platform Handbook",
+    "section": "5. Data Retention Policy",
+    "type": "factual",
+    "question": "What happens to the vector collection built from an uploaded PDF after the answer is generated?",
+    "expectedAnswer": "It is deleted immediately after the answer is generated.",
+    "expectedKeywords": ["deleted immediately"],
+    "sourceSnippet": "that collection is deleted immediately after the answer is generated"
+  },
+  {
+    "id": "cortex-5",
+    "doc": "cortex-handbook.pdf",
+    "docTitle": "CortexAI Platform Handbook",
+    "section": "6. Support Policy",
+    "type": "factual",
+    "question": "How quickly are standard support requests answered?",
+    "expectedAnswer": "Within 2 business days",
+    "expectedKeywords": ["2 business day"],
+    "sourceSnippet": "answered within 2 business days"
+  },
+  {
+    "id": "cortex-6",
+    "doc": "cortex-handbook.pdf",
+    "docTitle": "CortexAI Platform Handbook",
+    "section": "6. Support Policy",
+    "type": "factual",
+    "question": "What response time do Pro plan enterprise customers get for support?",
+    "expectedAnswer": "4 hours",
+    "expectedKeywords": ["4 hour"],
+    "sourceSnippet": "response time of 4 hours"
+  },
+  {
+    "id": "cortex-7",
+    "doc": "cortex-handbook.pdf",
+    "docTitle": "CortexAI Platform Handbook",
+    "section": "n/a (not in document)",
+    "type": "adversarial",
+    "question": "What is the refund policy for annual subscriptions?",
+    "expectedAnswer": "I couldn't find this information in the uploaded PDF.",
+    "expectedKeywords": ["couldn't find this information"],
+    "sourceSnippet": null
+  },
+  {
+    "id": "aurora-1",
+    "doc": "aurora-hr-handbook.pdf",
+    "docTitle": "Aurora Robotics Employee Handbook",
+    "section": "1. Leave Policy",
+    "type": "factual",
+    "question": "How many paid leave days do full-time employees get per calendar year?",
+    "expectedAnswer": "18 paid leave days",
+    "expectedKeywords": ["18"],
+    "sourceSnippet": "receive 18 paid leave days per calendar year"
+  },
+  {
+    "id": "aurora-2",
+    "doc": "aurora-hr-handbook.pdf",
+    "docTitle": "Aurora Robotics Employee Handbook",
+    "section": "2. Remote Work Policy",
+    "type": "factual",
+    "question": "How many days per week can an employee work remotely with manager approval?",
+    "expectedAnswer": "3 days per week",
+    "expectedKeywords": ["3 day"],
+    "sourceSnippet": "work remotely up to 3 days per week"
+  },
+  {
+    "id": "aurora-3",
+    "doc": "aurora-hr-handbook.pdf",
+    "docTitle": "Aurora Robotics Employee Handbook",
+    "section": "3. Expense Reimbursement",
+    "type": "factual",
+    "question": "Within how many days must an expense report be submitted?",
+    "expectedAnswer": "30 days",
+    "expectedKeywords": ["30 day"],
+    "sourceSnippet": "submitted within 30 days of the expense"
+  },
+  {
+    "id": "aurora-4",
+    "doc": "aurora-hr-handbook.pdf",
+    "docTitle": "Aurora Robotics Employee Handbook",
+    "section": "4. Probation Period",
+    "type": "factual",
+    "question": "How long is the probation period for new employees?",
+    "expectedAnswer": "90 days",
+    "expectedKeywords": ["90-day", "90 day"],
+    "sourceSnippet": "serve a 90-day probation period"
+  },
+  {
+    "id": "aurora-5",
+    "doc": "aurora-hr-handbook.pdf",
+    "docTitle": "Aurora Robotics Employee Handbook",
+    "section": "6. Parental Leave",
+    "type": "factual",
+    "question": "How many weeks of paid parental leave do primary caregivers receive?",
+    "expectedAnswer": "26 weeks",
+    "expectedKeywords": ["26 week"],
+    "sourceSnippet": "Primary caregivers are entitled to 26 weeks"
+  },
+  {
+    "id": "aurora-6",
+    "doc": "aurora-hr-handbook.pdf",
+    "docTitle": "Aurora Robotics Employee Handbook",
+    "section": "5. Code of Conduct",
+    "type": "factual",
+    "question": "Within how many business days must an employee disclose a conflict of interest?",
+    "expectedAnswer": "5 business days",
+    "expectedKeywords": ["5 business day"],
+    "sourceSnippet": "within 5 business days of becoming aware"
+  },
+  {
+    "id": "aurora-7",
+    "doc": "aurora-hr-handbook.pdf",
+    "docTitle": "Aurora Robotics Employee Handbook",
+    "section": "n/a (not in document)",
+    "type": "adversarial",
+    "question": "What is Aurora Robotics' stock ticker symbol?",
+    "expectedAnswer": "I couldn't find this information in the uploaded PDF.",
+    "expectedKeywords": ["couldn't find this information"],
+    "sourceSnippet": null
+  },
+  {
+    "id": "solar-1",
+    "doc": "solar-pv-primer.pdf",
+    "docTitle": "Solar Photovoltaic Systems: A Technical Primer",
+    "section": "2. Panel Efficiency",
+    "type": "factual",
+    "question": "What efficiency range do monocrystalline panels typically achieve?",
+    "expectedAnswer": "20-22%",
+    "expectedKeywords": ["20-22%", "20-22 %", "20 to 22%"],
+    "sourceSnippet": "Monocrystalline panels typically operate at 20-22% efficiency"
+  },
+  {
+    "id": "solar-2",
+    "doc": "solar-pv-primer.pdf",
+    "docTitle": "Solar Photovoltaic Systems: A Technical Primer",
+    "section": "3. Inverter Types",
+    "type": "factual",
+    "question": "What does a microinverter do?",
+    "expectedAnswer": "Converts DC to AC at each individual panel.",
+    "expectedKeywords": ["dc to ac", "each panel", "each individual panel"],
+    "sourceSnippet": "microinverter converts DC to AC at each individual panel"
+  },
+  {
+    "id": "solar-3",
+    "doc": "solar-pv-primer.pdf",
+    "docTitle": "Solar Photovoltaic Systems: A Technical Primer",
+    "section": "4. System Sizing",
+    "type": "factual",
+    "question": "What is the typical size range for a residential solar system?",
+    "expectedAnswer": "5kW to 10kW",
+    "expectedKeywords": ["5kw", "10kw"],
+    "sourceSnippet": "ranges from 5kW to 10kW"
+  },
+  {
+    "id": "solar-4",
+    "doc": "solar-pv-primer.pdf",
+    "docTitle": "Solar Photovoltaic Systems: A Technical Primer",
+    "section": "5. Maintenance",
+    "type": "factual",
+    "question": "How often should solar panels be inspected?",
+    "expectedAnswer": "Twice a year",
+    "expectedKeywords": ["twice a year"],
+    "sourceSnippet": "inspected twice a year"
+  },
+  {
+    "id": "solar-5",
+    "doc": "solar-pv-primer.pdf",
+    "docTitle": "Solar Photovoltaic Systems: A Technical Primer",
+    "section": "5. Maintenance",
+    "type": "factual",
+    "question": "By how much can dust and debris reduce panel output?",
+    "expectedAnswer": "Up to 25%",
+    "expectedKeywords": ["25%"],
+    "sourceSnippet": "reduce panel output by up to 25%"
+  },
+  {
+    "id": "solar-6",
+    "doc": "solar-pv-primer.pdf",
+    "docTitle": "Solar Photovoltaic Systems: A Technical Primer",
+    "section": "6. Degradation Rate",
+    "type": "factual",
+    "question": "What is the average annual degradation rate of solar panels?",
+    "expectedAnswer": "About 0.5% per year",
+    "expectedKeywords": ["0.5%"],
+    "sourceSnippet": "average annual degradation rate of about 0.5% per year"
+  },
+  {
+    "id": "solar-7",
+    "doc": "solar-pv-primer.pdf",
+    "docTitle": "Solar Photovoltaic Systems: A Technical Primer",
+    "section": "n/a (not in document)",
+    "type": "adversarial",
+    "question": "What warranty period applies to the inverter's internal battery?",
+    "expectedAnswer": "I couldn't find this information in the uploaded PDF.",
+    "expectedKeywords": ["couldn't find this information"],
+    "sourceSnippet": null
+  }
+]
