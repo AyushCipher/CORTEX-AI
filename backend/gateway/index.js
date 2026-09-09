@@ -9,6 +9,11 @@ import { getCurrentUser } from "./controllers/user.controller.js";
 import cookieParser from "cookie-parser";
 import { createLogger } from "../shared/logger/logger.js";
 import { createHttpLogger } from "../shared/logger/httpLogger.js";
+import {
+  gatewayGlobalLimiter,
+  agentRouteLimiter,
+  authLoginLimiter
+} from "./middlewares/rateLimit.middleware.js";
 dotenv.config();
 
 const app = express();
@@ -25,6 +30,7 @@ app.use(
 app.use("/uploads", express.static("uploads"));
 app.use(helmet());
 app.use(createHttpLogger(logger));
+app.use(gatewayGlobalLimiter);
 app.use(cookieParser());
 app.use(express.json());
 
@@ -35,10 +41,11 @@ app.use("/api/auth/internal", (req, res) => {
   });
 });
 
+app.use("/api/auth/login", authLoginLimiter);
 app.use("/api/auth", proxyWithTrace(process.env.AUTH_SERVICE));
 app.use("/api/me", protect, getCurrentUser);
 app.use("/api/chat", protect, proxyWithUser(process.env.CHAT_SERVICE));
-app.use("/api/agent", protect, proxyWithUser(process.env.AGENT_SERVICE));
+app.use("/api/agent", protect, agentRouteLimiter, proxyWithUser(process.env.AGENT_SERVICE));
 app.use("/api/billing", protect, proxyWithUser(process.env.BILLING_SERVICE));
 
 app.get("/", (req, res) => {

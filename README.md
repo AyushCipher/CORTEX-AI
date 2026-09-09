@@ -17,16 +17,17 @@ The system is built around a gateway-driven microservice architecture. A React +
 
 ## Key Features
 
-- Multi-agent AI routing for chat, coding, search, PDF, PPT, image, vision, and PDF RAG workflows
+- Multi-agent AI routing with both auto-detection and manual selector modes for chat, coding, search, PDF, PPT, image, vision, and PDF RAG workflows
 - A search agent that behaves agentically: it reformulates its own query via an LLM and retries (up to 3x) when the web search returns nothing useful, instead of just returning an empty result
-- Server-Sent Event streaming (`/api/agent/chat/stream`) so responses render token-by-token instead of waiting for the full reply
+- Production-grade **Hybrid Search RAG**: Combines dense vector embeddings (Qdrant) with sparse keyword matching (Okapi BM25) and Reciprocal Rank Fusion (RRF) reranking
+- Automated RAG Evaluation Suite benchmarked against factual and adversarial questions with 100% retrieval hit rate and refusal accuracy
+- Server-Sent Event streaming (`/api/agent/chat/stream`) with progressive token/event emission
 - Google authentication with Firebase Admin session management
 - Conversation persistence with reusable chat history
-- PDF upload and retrieval-augmented answering from document context
 - AI image generation with S3-backed download links
 - AI-generated PDFs and presentations with downloadable artifacts
 - Credit-based billing with plan upgrades and usage deduction
-- Redis-backed rate limiting per agent type, enforced independently of whether the underlying generation call itself succeeds
+- **Multi-Tier Redis Rate Limiting**: Gateway-level rate limiting (`express-rate-limit` + `rate-limit-redis`) across global, auth, and agent routes, plus per-agent rate limits
 - Service-to-service authentication (shared secret) on every internal route, with request validation (zod) on every controller
 - Structured JSON logging with request-id tracing across services, and per-LLM-call token/cost logging
 - Artifact panel with code preview and live preview support
@@ -37,7 +38,7 @@ The system is built around a gateway-driven microservice architecture. A React +
 ```mermaid
 flowchart LR
   U[User] --> F[React + Vite Frontend]
-  F --> G[API Gateway]
+  F --> G[API Gateway + Redis Rate Limiter]
 
   G --> A[Auth Service]
   G --> C[Chat Service]
@@ -52,7 +53,9 @@ flowchart LR
   B --> R
 
   M --> L[LangChain + Multi-Model Routing]
-  M --> Q[(Qdrant Vector DB)]
+  M --> Q[(Qdrant Vector DB - Dense)]
+  M --> BM[Okapi BM25 - Sparse]
+  M --> RRF[Reciprocal Rank Fusion Reranker]
   M --> S[(S3 Storage)]
   M --> T[Tavily Search]
   M --> X[Groq / Gemini / OpenRouter]
@@ -64,25 +67,26 @@ flowchart LR
 1. The user logs in through Firebase Google sign-in.
 2. The frontend sends the Firebase token to the auth service through the gateway.
 3. The auth service verifies the identity token, creates or updates the user, and stores session data in Redis.
-4. The user sends a prompt from the chat UI.
-5. The gateway forwards the request to the agent service with user context.
+4. The user sends a prompt from the chat UI (with auto-detect or manual agent selection).
+5. The gateway checks rate limits and forwards the request to the agent service with user context.
 6. The agent service routes the prompt to the right AI workflow using LangGraph and specialized agents.
-7. The response is persisted in the chat service and returned to the frontend.
-8. If the response produces an artifact, the UI renders it in the artifact panel.
+7. For PDF RAG, the document is chunked and queried via Hybrid Search (Dense Qdrant + Sparse BM25 fused with RRF).
+8. The response is persisted in the chat service and returned to the frontend.
+9. If the response produces an artifact, the UI renders it in the artifact panel with live preview.
 
 ## Multi-Agent Architecture
 
-The AI layer is not a single prompt wrapper. It is organized as a routing graph with specialized nodes:
+The AI layer is organized as a routing graph with specialized nodes:
 
-- Router node: decides whether a request should go to chat, search, coding, pdf, ppt, image, vision, or PDF RAG
+- Router node: decides whether a request should go to chat, search, coding, pdf, ppt, image, vision, or PDF RAG (or respects manual user agent selection)
 - Chat agent: general conversational assistant with memory-aware responses
-- Search agent: web lookup through Tavily
-- Coding agent: code generation and technical help
+- Search agent: web lookup through Tavily with observe-reformulate-retry loop (up to 3 attempts)
+- Coding agent: code generation and technical help with multi-file project extraction
 - PDF agent: structured PDF generation with downloadable output
 - PPT agent: slide deck generation with formatted slides
 - Image agent: image prompt enhancement plus image generation and S3 upload
 - Vision agent: image understanding and OCR-style interpretation
-- PDF RAG agent: document ingestion, chunking, embeddings, Qdrant similarity search, and grounded answers
+- PDF RAG agent: document ingestion, recursive text splitting, Qdrant vector embedding, Okapi BM25 sparse keyword retrieval, Reciprocal Rank Fusion (RRF) reranking, and grounded answers
 
 This is the strongest part of the project because it demonstrates orchestration, task specialization, state management, and retrieval-based reasoning.
 
@@ -94,9 +98,10 @@ The search agent goes one step further than routing: rather than a single fixed 
 |---|---|
 | Frontend | React 19, Vite, Redux Toolkit, React Router, Framer Motion, Tailwind CSS, Monaco Editor |
 | Backend | Node.js, Express.js, Mongoose, Multer, Helmet, CORS |
+| Rate Limiting | Redis-backed (`rate-limit-redis` + `express-rate-limit` at Gateway + Agent-level limits) |
 | Validation | Zod (request schemas on every controller) |
 | Observability | Pino / pino-http (structured logs, request-id tracing) |
-| Testing | Vitest, Supertest |
+| Testing & Eval | Vitest, Supertest, Automated RAG Evaluation Suite |
 | AI / Orchestration | LangChain, LangGraph, Google Generative AI, Groq, OpenRouter, Tavily |
 | Data | MongoDB, Redis, Qdrant |
 | Auth | Firebase Authentication, Firebase Admin |
@@ -106,14 +111,22 @@ The search agent goes one step further than routing: rather than a single fixed 
 
 ## AI / LLM Technologies Used
 
-- LangGraph for agent routing and conditional workflows
-- LangChain message primitives for prompt/history composition
-- Gemini for vision and multimodal tasks
-- Groq for fast chat/search/coding generation
-- OpenRouter for coding-specific model routing
-- Tavily for web search augmentation
-- Qdrant for vector similarity search in PDF RAG
-- Embeddings via Google Generative AI embeddings
+- **LangGraph** for supervisor agent routing and conditional multi-agent workflows
+- **Hybrid Search RAG**: Dense vector embeddings (Qdrant) + Sparse keyword retrieval (Okapi BM25) + **Reciprocal Rank Fusion (RRF)** reranking
+- **Multi-Model Routing**:
+  - Gemini for vision, image understanding, and embeddings
+  - Groq for high-speed chat, search reformulation, image prompts, and PDF/PPT content
+  - OpenRouter (DeepSeek) for coding agent synthesis
+- **Agentic Search**: Observe-reformulate-retry loop with Tavily web search
+- **Token & Cost Governance**: Per-call latency, token counting, and USD cost estimation via `invokeWithUsage`
+
+## RAG Evaluation & Benchmarks
+
+The repository includes a standalone automated evaluation pipeline (`backend/services/agent/eval/run-rag-eval.js`) benchmarked against realistic document fixtures (`cortex-handbook.pdf`, `aurora-hr-handbook.pdf`, `solar-pv-primer.pdf`) and 21 QA pairs:
+
+- **Factual Question Retrieval Hit Rate (top-5)**: **100% (18/18)**
+- **Answer Correctness (Strict Grounding)**: **100% PASS (21/21)**
+- **Adversarial & Out-of-Scope Rejections**: Successfully refuses out-of-context queries with standard refusal responses without hallucination.
 
 ## Folder Structure
 
@@ -279,7 +292,6 @@ docker compose up -d mongo redis qdrant
 - `AWS_ACCESS_KEY_ID` - AWS access key
 - `AWS_SECRET_ACCESS_KEY` - AWS secret key
 - `AWS_REGION` - AWS region
-- `INTERNAL_SERVICE_SECRET` - shared secret sent on the `x-internal-secret` header when calling the auth service's internal routes
 
 ## Running the Project
 

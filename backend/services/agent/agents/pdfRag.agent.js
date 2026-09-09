@@ -2,6 +2,7 @@ import fs from "fs";
 import { PDFParse } from "pdf-parse";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { createVectorStore } from "../utils/vectorStore.js";
+import { hybridSearch } from "../utils/hybridRetriever.js";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { getModel } from "../utils/model.js";
 import { invokeWithUsage } from "../utils/logLLMUsage.js";
@@ -88,11 +89,14 @@ export const pdfRagAgent = async (state) => {
       docs
     );
 
-    const relevantDocs = await vectorStore.similaritySearch(
-      state.prompt,
-
-      PDF_RAG_TOP_K
-    );
+    const relevantDocs = await hybridSearch({
+      vectorStore,
+      docs,
+      query: state.prompt,
+      topK: PDF_RAG_TOP_K,
+      denseK: PDF_RAG_TOP_K,
+      bm25K: PDF_RAG_TOP_K
+    });
 
     const context = buildContext(relevantDocs);
     const llm = getModel("pdf-rag");
