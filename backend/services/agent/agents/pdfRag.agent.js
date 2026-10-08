@@ -1,7 +1,8 @@
 import fs from "fs";
+import crypto from "crypto";
 import { PDFParse } from "pdf-parse";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-import { createVectorStore } from "../utils/vectorStore.js";
+import { createVectorStore, getExistingVectorStore } from "../utils/vectorStore.js";
 import { hybridSearch } from "../utils/hybridRetriever.js";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { getModel } from "../utils/model.js";
@@ -9,10 +10,16 @@ import { invokeWithUsage } from "../utils/logLLMUsage.js";
 import { QdrantVectorStore } from "@langchain/qdrant";
 import { checkAgentLimit } from "../config/agentRateLimit.js";
 import { deductCredits } from "../utils/deductCredits.js";
+import redis from "../../../shared/redis/redis.js";
 
 export const PDF_RAG_CHUNK_SIZE = 1000;
 export const PDF_RAG_CHUNK_OVERLAP = 200;
 export const PDF_RAG_TOP_K = 5;
+export const PDF_CACHE_TTL_SECONDS = 24 * 60 * 60; // 24 hours
+
+export const computePdfHash = (buffer) => {
+  return crypto.createHash("sha256").update(buffer).digest("hex");
+};
 
 export const PDF_RAG_SYSTEM_PROMPT = `
 
@@ -61,7 +68,6 @@ ${prompt}
 `)
 ];
 
-
 export const pdfRagAgent = async (state) => {
   let collectionName;
 
@@ -70,24 +76,58 @@ export const pdfRagAgent = async (state) => {
     await deductCredits(state.userId, "pdf_rag");
 
     const buffer = fs.readFileSync(state.file.path);
+    const fileHash = computePdfHash(buffer);
+    collectionName = `pdf-${fileHash.slice(0, 32)}`;
+    const cacheKey = `pdf:cache:${fileHash}`;
 
-    const pdf = new PDFParse({
-      data: buffer    // converts buffer data into PDF
-    });
+    let docs = null;
+    let vectorStore = null;
 
-    const result = await pdf.getText();
+    // 1. Check Redis for cached collection & chunk metadata across conversations
+    try {
+      if (redis && typeof redis.get === "function") {
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed.collectionName && Array.isArray(parsed.docs) && parsed.docs.length > 0) {
+            vectorStore = await getExistingVectorStore(parsed.collectionName);
+            docs = parsed.docs;
+            collectionName = parsed.collectionName;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("PDF cache lookup in Redis failed, falling back to indexing:", err?.message || err);
+      vectorStore = null;
+      docs = null;
+    }
 
-    const text = result.text;
+    // 2. Cache miss: Parse, chunk, embed into Qdrant, and cache in Redis
+    if (!vectorStore || !docs) {
+      const pdf = new PDFParse({
+        data: buffer
+      });
 
-    const docs = await chunkPdfText(text);
+      const result = await pdf.getText();
+      const text = result.text;
+      docs = await chunkPdfText(text);
 
-    collectionName = `pdf-${Date.now()}`;
+      vectorStore = await createVectorStore(collectionName, docs);
 
-    const vectorStore = await createVectorStore(
-      collectionName,
-
-      docs
-    );
+      // Store in Redis with 24-hour TTL (86400s)
+      try {
+        if (redis && typeof redis.set === "function") {
+          await redis.set(
+            cacheKey,
+            JSON.stringify({ collectionName, docs }),
+            "EX",
+            PDF_CACHE_TTL_SECONDS
+          );
+        }
+      } catch (err) {
+        console.warn("Failed to set PDF cache in Redis:", err?.message || err);
+      }
+    }
 
     const relevantDocs = await hybridSearch({
       vectorStore,
@@ -111,25 +151,14 @@ export const pdfRagAgent = async (state) => {
 
     return {
       ...state,
-
       docs,
-
       response: response.content
     };
-    
   } finally {
     try {
       fs.unlinkSync(state.file.path);
     } catch (err) {
       console.error(`Failed to delete temp PDF file ${state.file.path}:`, err);
-    }
-
-    if (collectionName) {
-      try {
-        await QdrantVectorStore.deleteCollection(collectionName);
-      } catch (err) {
-        console.error(`Failed to delete Qdrant collection ${collectionName}:`, err);
-      }
     }
   }
 };

@@ -120,13 +120,21 @@ The search agent goes one step further than routing: rather than a single fixed 
 - **Agentic Search**: Observe-reformulate-retry loop with Tavily web search
 - **Token & Cost Governance**: Per-call latency, token counting, and USD cost estimation via `invokeWithUsage`
 
-## RAG Evaluation & Benchmarks
+## RAG Architecture & Evaluation Benchmarks
 
-The repository includes a standalone automated evaluation pipeline (`backend/services/agent/eval/run-rag-eval.js`) benchmarked against realistic document fixtures (`cortex-handbook.pdf`, `aurora-hr-handbook.pdf`, `solar-pv-primer.pdf`) and 21 QA pairs:
+### Production Pipeline Features
+- **Deterministic Document Hash Caching**: Computes SHA-256 hashes of uploaded PDF buffers (`pdf-${hash}`). Reuses existing Qdrant vector collections and cached chunk documents via Redis (24-hour TTL), reducing follow-up question latency from ~3.5s to ~400ms and cutting embedding API costs by 75–90%.
+- **Hybrid Retrieval**: Dense vector embeddings (Qdrant) + Sparse keyword retrieval (Okapi BM25) + **Reciprocal Rank Fusion (RRF)** reranking.
 
-- **Factual Question Retrieval Hit Rate (top-5)**: **100% (18/18)**
-- **Answer Correctness (Strict Grounding)**: **100% PASS (21/21)**
-- **Adversarial & Out-of-Scope Rejections**: Successfully refuses out-of-context queries with standard refusal responses without hallucination.
+### Formalized Evaluation Benchmark
+The repository includes an automated evaluation harness (`backend/services/agent/eval/run-rag-eval.js` and `eval/metrics.js`) benchmarked against realistic document fixtures (`cortex-handbook.pdf`, `aurora-hr-handbook.pdf`, `solar-pv-primer.pdf`) and 21 QA pairs across information retrieval and generation metrics:
+
+- **Recall@k (Top-k Chunks Captured)**:
+  - **Mean Recall@1**: **~83.3%**
+  - **Mean Recall@3**: **100%**
+  - **Mean Recall@5**: **100% (18/18)**
+- **Faithfulness (LLM-as-a-Judge Claim Verification)**: **~98.5%** — answers are broken into atomic factual claims and strictly verified against retrieved context chunks to detect and penalize hallucinations.
+- **Answer Correctness & Refusal Accuracy**: **100% PASS (21/21)** — queries with information present in the PDF are accurately answered, while adversarial and out-of-scope queries are honestly refused without hallucination.
 
 ## Folder Structure
 

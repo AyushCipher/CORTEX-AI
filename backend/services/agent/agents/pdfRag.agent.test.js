@@ -7,9 +7,10 @@ vi.mock("fs", () => ({
   }
 }));
 
+const getTextMock = vi.fn().mockResolvedValue({ text: "Employees get 18 paid leave days per year." });
 vi.mock("pdf-parse", () => ({
   PDFParse: vi.fn().mockImplementation(() => ({
-    getText: vi.fn().mockResolvedValue({ text: "Employees get 18 paid leave days per year." })
+    getText: getTextMock
   }))
 }));
 
@@ -17,8 +18,12 @@ const similaritySearchMock = vi.fn();
 const createVectorStoreMock = vi.fn().mockResolvedValue({
   similaritySearch: similaritySearchMock
 });
+const getExistingVectorStoreMock = vi.fn().mockResolvedValue({
+  similaritySearch: similaritySearchMock
+});
 vi.mock("../utils/vectorStore.js", () => ({
-  createVectorStore: (...args) => createVectorStoreMock(...args)
+  createVectorStore: (...args) => createVectorStoreMock(...args),
+  getExistingVectorStore: (...args) => getExistingVectorStoreMock(...args)
 }));
 
 const modelMock = { invoke: vi.fn() };
@@ -41,7 +46,15 @@ vi.mock("../utils/deductCredits.js", () => ({
   deductCredits: (...args) => deductCreditsMock(...args)
 }));
 
-const { pdfRagAgent, chunkPdfText, buildContext, buildPdfRagMessages, PDF_RAG_TOP_K } =
+const redisMock = {
+  get: vi.fn().mockResolvedValue(null),
+  set: vi.fn().mockResolvedValue("OK")
+};
+vi.mock("../../../shared/redis/redis.js", () => ({
+  default: redisMock
+}));
+
+const { pdfRagAgent, chunkPdfText, buildContext, buildPdfRagMessages, PDF_RAG_TOP_K, computePdfHash } =
   await import("./pdfRag.agent.js");
 const fs = (await import("fs")).default;
 
@@ -55,10 +68,14 @@ const baseState = () => ({
 describe("pdfRagAgent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getTextMock.mockResolvedValue({ text: "Employees get 18 paid leave days per year." });
     createVectorStoreMock.mockResolvedValue({ similaritySearch: similaritySearchMock });
+    getExistingVectorStoreMock.mockResolvedValue({ similaritySearch: similaritySearchMock });
     deleteCollectionMock.mockResolvedValue(undefined);
     checkAgentLimitMock.mockResolvedValue({ remaining: 4, limit: 5 });
     deductCreditsMock.mockResolvedValue(undefined);
+    redisMock.get.mockResolvedValue(null);
+    redisMock.set.mockResolvedValue("OK");
   });
 
   it("builds the answer context only from the retrieved top-k chunks, not the whole document", async () => {
@@ -112,34 +129,51 @@ describe("pdfRagAgent", () => {
     expect(fs.unlinkSync).toHaveBeenCalledWith("/tmp/upload-123.pdf");
   });
 
-  it("deletes the Qdrant collection created for this request after a successful run", async () => {
+  it("FIXED: computes SHA-256 hash and caches collection in Redis with 24h TTL on cache miss", async () => {
     similaritySearchMock.mockResolvedValue([]);
     modelMock.invoke.mockResolvedValue({ content: "answer" });
 
     await pdfRagAgent(baseState());
 
-    expect(deleteCollectionMock).toHaveBeenCalledTimes(1);
-    expect(deleteCollectionMock.mock.calls[0][0]).toMatch(/^pdf-\d+$/);
+    expect(redisMock.get).toHaveBeenCalledWith(expect.stringMatching(/^pdf:cache:[a-f0-9]{64}$/));
+    expect(createVectorStoreMock).toHaveBeenCalledTimes(1);
+    const collectionNameArg = createVectorStoreMock.mock.calls[0][0];
+    expect(collectionNameArg).toMatch(/^pdf-[a-f0-9]{32}$/);
+
+    expect(redisMock.set).toHaveBeenCalledWith(
+      expect.stringMatching(/^pdf:cache:[a-f0-9]{64}$/),
+      expect.any(String),
+      "EX",
+      86400
+    );
   });
 
-  it("still deletes the temp file and the Qdrant collection when generation throws", async () => {
+  it("FIXED: reuses cached Qdrant collection on cache hit and skips PDF parsing + embedding", async () => {
+    const cachedDocs = [{ pageContent: "Cached content from previous message." }];
+    redisMock.get.mockResolvedValue(
+      JSON.stringify({
+        collectionName: "pdf-cached123",
+        docs: cachedDocs
+      })
+    );
+    similaritySearchMock.mockResolvedValue(cachedDocs);
+    modelMock.invoke.mockResolvedValue({ content: "answer from cache" });
+
+    const result = await pdfRagAgent(baseState());
+
+    expect(getExistingVectorStoreMock).toHaveBeenCalledWith("pdf-cached123");
+    expect(createVectorStoreMock).not.toHaveBeenCalled();
+    expect(getTextMock).not.toHaveBeenCalled();
+    expect(result.response).toBe("answer from cache");
+    expect(fs.unlinkSync).toHaveBeenCalledWith("/tmp/upload-123.pdf");
+  });
+
+  it("still deletes the temp file when generation throws", async () => {
     similaritySearchMock.mockResolvedValue([{ pageContent: "context" }]);
     modelMock.invoke.mockRejectedValue(new Error("model unavailable"));
 
     await expect(pdfRagAgent(baseState())).rejects.toThrow("model unavailable");
 
-    expect(fs.unlinkSync).toHaveBeenCalledWith("/tmp/upload-123.pdf");
-    expect(deleteCollectionMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not attempt to delete a Qdrant collection if one was never created", async () => {
-    createVectorStoreMock.mockRejectedValue(new Error("Qdrant unreachable"));
-
-    await expect(pdfRagAgent(baseState())).rejects.toThrow("Qdrant unreachable");
-
-    // collectionName is assigned before createVectorStore is awaited, so the
-    // agent still attempts a best-effort delete of a collection that was
-    // never actually created; deleteCollection itself must not throw here.
     expect(fs.unlinkSync).toHaveBeenCalledWith("/tmp/upload-123.pdf");
   });
 
@@ -149,7 +183,6 @@ describe("pdfRagAgent", () => {
     fs.unlinkSync.mockImplementation(() => {
       throw new Error("EBUSY: file locked");
     });
-    deleteCollectionMock.mockRejectedValue(new Error("collection already gone"));
 
     const result = await pdfRagAgent(baseState());
 
@@ -157,10 +190,6 @@ describe("pdfRagAgent", () => {
   });
 
   it("FIXED: checks the pdf_rag rate limit and deducts pdf_rag credits before doing any work", async () => {
-    // Every other agent (chat, search, coding, pdf, ppt, image, vision) calls
-    // checkAgentLimit + deductCredits before doing work; pdfRagAgent
-    // previously didn't — see docs/known-limitations.md for the original gap
-    // report. It now guards the same way, using the "pdf_rag" bucket.
     similaritySearchMock.mockResolvedValue([]);
     modelMock.invoke.mockResolvedValue({ content: "answer" });
 
