@@ -31,6 +31,9 @@ jobs:
         run: npm test
         env:
           GOOGLE_API_KEY: "dummy-key-for-tests"
+          GROQ_API_KEY: "dummy-key-for-tests"
+          OPENROUTER_API_KEY: "dummy-key-for-tests"
+          TAVILY_API_KEY: "dummy-key-for-tests"
           INTERNAL_SERVICE_SECRET: "dummy-internal-secret"
           REDIS_URL: "redis://localhost:6379"
 

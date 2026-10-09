@@ -5,6 +5,7 @@ dotenv.config();
 import { ChatOpenRouter } from "@langchain/openrouter";
 
 const openRouter = new ChatOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY || "dummy-openrouter-key",
   model: "deepseek/deepseek-chat",
   temperature: 0,
   maxTokens: 2500
@@ -13,10 +14,11 @@ const openRouter = new ChatOpenRouter({
 
 export const gemini = new ChatGoogleGenerativeAI({
   model: "gemini-3.5-flash",
-  apiKey: process.env.GOOGLE_API_KEY
+  apiKey: process.env.GOOGLE_API_KEY || "dummy-google-key"
 });
 
 const groq = new ChatGroq({
+  apiKey: process.env.GROQ_API_KEY || "dummy-groq-key",
   model: "openai/gpt-oss-120b",
   temperature: 0,
   maxTokens: 4000,  
