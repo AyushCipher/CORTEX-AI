@@ -41,7 +41,7 @@ export default function ArtifactPanel() {
 </head>
 <body>
 ${htmlFile?.content || ""}
-<script>${jsFile?.content || ""}<\/script>
+<script>${jsFile?.content || ""}</script>
 </body>
 </html>`;
 
