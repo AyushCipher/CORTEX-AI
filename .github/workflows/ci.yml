@@ -20,7 +20,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: backend/services/agent/package-lock.json
 
@@ -29,6 +29,10 @@ jobs:
 
       - name: Run tests
         run: npm test
+        env:
+          GOOGLE_API_KEY: "dummy-key-for-tests"
+          INTERNAL_SERVICE_SECRET: "dummy-internal-secret"
+          REDIS_URL: "redis://localhost:6379"
 
   backend-auth:
     name: Auth Service Tests
@@ -43,7 +47,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: backend/services/auth/package-lock.json
 
@@ -52,6 +56,8 @@ jobs:
 
       - name: Run tests
         run: npm test
+        env:
+          INTERNAL_SERVICE_SECRET: "dummy-internal-secret"
 
   backend-billing:
     name: Billing Service Tests
@@ -66,7 +72,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: backend/services/billing/package-lock.json
 
@@ -75,6 +81,8 @@ jobs:
 
       - name: Run tests
         run: npm test
+        env:
+          INTERNAL_SERVICE_SECRET: "dummy-internal-secret"
 
   frontend:
     name: Frontend Lint & Build
@@ -89,7 +97,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
